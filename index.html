@@ -1318,6 +1318,21 @@ function verifyCardsAgainstDictionary(cards) {
   return results;
 }
 
+function containsChineseCharacters(text) {
+  return /\p{Script=Han}/u.test(String(text || ""));
+}
+
+function containsRussianCharacters(text) {
+  return /\p{Script=Cyrillic}/u.test(String(text || ""));
+}
+
+function hasReversedCardColumns(card) {
+  return containsRussianCharacters(card.hanzi)
+    && !containsChineseCharacters(card.hanzi)
+    && containsChineseCharacters(card.translation)
+    && !containsRussianCharacters(card.translation);
+}
+
 function parsePastedCards(text) {
   const parsedCards = [];
   let ignoredLineCount = 0;
@@ -1326,13 +1341,21 @@ function parsePastedCards(text) {
     const line = lines[lineIndex];
     if (!line.trim()) continue;
     const columns = line.split("\t").map(value => value.trim());
-    const [hanzi, pinyin, translation] = columns.length >= 3
-      ? [columns[0], columns[1], columns.slice(2).join("; ")]
-      : [columns[0], "", columns[1] || ""];
-    const looksLikeHeader = lineIndex === 0 && /^(иероглифы?|漢字|汉字|traditional|simplified|character|слово)$/i.test(hanzi)
-      && (columns.length === 1 || /^(pinyin|пиньин|перевод|translation|русский)$/i.test(columns[1]));
-    if (looksLikeHeader) continue;
-    if (!hanzi) { ignoredLineCount += 1; continue; }
+    const headerColumnPattern = /^(иероглифы?|漢字|汉字|traditional|simplified|character|слово|пиньинь?|pinyin|перевод|translation|русский|russian)$/iu;
+    if (lineIndex === 0 && columns.every(column => headerColumnPattern.test(column))) continue;
+
+    // Detect the Chinese column by its contents, not its position in a spreadsheet.
+    const hanziColumnIndex = columns.findIndex(column => containsChineseCharacters(column) && !containsRussianCharacters(column));
+    if (hanziColumnIndex < 0) {
+      ignoredLineCount += 1;
+      continue;
+    }
+    const hanzi = columns[hanziColumnIndex];
+    const remainingColumns = columns.filter((column, columnIndex) => columnIndex !== hanziColumnIndex && column);
+    const translationColumns = remainingColumns.filter(column => containsRussianCharacters(column));
+    const pinyinColumns = remainingColumns.filter(column => !containsRussianCharacters(column));
+    const translation = translationColumns.join("; ");
+    const pinyin = pinyinColumns.join(" ");
     parsedCards.push({ identifier: createIdentifier(), hanzi: convertToSimplified(hanzi), pinyin, translation, spacedRepetition: createEmptySpacedRepetition() });
   }
   return { parsedCards, ignoredLineCount };
@@ -1364,7 +1387,7 @@ function renderEditor() {
   nameField.append(nameInput);
   editorPanel.append(nameField);
   editorPanel.append(createElement("h2", "small-heading", "Вставить из Google Таблиц"));
-  editorPanel.append(createElement("p", "description", "Выделите строки в таблице, скопируйте и вставьте сюда. Можно вставить даже один столбец с иероглифами. Пиньинь и перевод заполнятся из словаря, если слово найдено однозначно. Введённые вручную значения не переписываются без подтверждения."));
+  editorPanel.append(createElement("p", "description", "Вставьте строки из Google Таблиц в любом порядке столбцов: программа найдёт китайские иероглифы и русский перевод. Можно вставить только иероглифы — пиньинь и перевод заполнятся из словаря, если совпадение однозначно. Ручные значения не меняются без подтверждения."));
   editorPanel.append(createElement("div", "import-example", "你好\tnǐ hǎo\tздравствуйте\n谢谢\txiè xie\tспасибо\n朋友\tpéng you\tдруг"));
   const pasteField = createElement("textarea", "textarea");
   pasteField.placeholder = "Иероглифы\nили: Иероглифы [Tab] Перевод\nили: Иероглифы [Tab] Пиньинь [Tab] Перевод";
@@ -1419,7 +1442,32 @@ function renderEditor() {
     showToast("Найдено: " + verificationResults.matched + "; заполнено полей: " + verificationResults.updated + "; расхождений: " + verificationResults.mismatches.length + "; нет в словаре: " + verificationResults.missing + "; неоднозначных: " + verificationResults.ambiguous + ".");
   });
   editorTopline.append(verifyDeckButton);
+  const reversedCards = activeDeck.cards.filter(hasReversedCardColumns);
+  if (reversedCards.length > 0) {
+    const repairColumnsButton = createElement("button", "button secondary small", "⇄ Исправить столбцы (" + reversedCards.length + ")");
+    repairColumnsButton.type = "button";
+    repairColumnsButton.addEventListener("click", () => {
+      const exampleCard = reversedCards[0];
+      if (!window.confirm("Найдены карточки с перепутанными столбцами. Например: «" + exampleCard.hanzi + "» находится в поле иероглифов, а «" + exampleCard.translation + "» — в переводе. Исправить " + reversedCards.length + " карточек? История повторений сохранится. Перед исправлением будет скачана резервная копия.")) return;
+      downloadBackup();
+      for (const card of reversedCards) {
+        const originalRussianTranslation = card.hanzi;
+        card.hanzi = convertToSimplified(card.translation).trim();
+        card.translation = originalRussianTranslation.trim();
+      }
+      const verificationResults = verifyCardsAgainstDictionary(reversedCards);
+      editorReviewSuggestions = verificationResults.mismatches;
+      markCardsUpdated();
+      renderApplication();
+      showToast("Исправлено карточек: " + reversedCards.length + ". Пиньинь заполнен в " + verificationResults.updated + " полях (включая переводы, если были пустыми).");
+    });
+    editorTopline.append(repairColumnsButton);
+  }
   editorPanel.append(editorTopline);
+  if (reversedCards.length > 0) {
+    const reversedColumnsWarning = createElement("div", "editor-verify-note warning", "⚠ Найдено " + reversedCards.length + " карточек, где русский перевод стоит вместо иероглифов. Нажмите «⇄ Исправить столбцы» выше: программа поменяет значения местами и дополнит пиньинь из словаря. Перед исправлением скачает резервную копию; прогресс повторений сохранится.");
+    editorPanel.append(reversedColumnsWarning);
+  }
   const verificationNotice = createElement("div", "editor-verify-note" + (!dictionaryFullLoaded ? " warning" : ""), dictionaryFullLoaded
     ? "Словарь HSK сохранён на устройстве. Заполняем только пустые поля. Расхождения с ручным переводом и пиньинем показываем для проверки."
     : "Пока доступен только начальный словарь. Откройте «Словарь HSK 1–2» с интернетом, чтобы загрузить полный список для сверки.");
