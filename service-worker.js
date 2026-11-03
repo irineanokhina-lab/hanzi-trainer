@@ -1,6 +1,6 @@
 "use strict";
 
-const cacheName = "hanzi-trainer-static-v3";
+const cacheName = "hanzi-trainer-static-v4";
 const cachedFiles = [
   "./",
   "./index.html",
@@ -33,7 +33,12 @@ self.addEventListener("fetch", event => {
   const requestedUrl = new URL(event.request.url);
   if (requestedUrl.origin !== self.location.origin || !requestedUrl.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
   event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => cachedResponse || fetch(event.request))
+    (event.request.mode === "navigate"
+      ? fetch(event.request).then(networkResponse => {
+          const responseCopy = networkResponse.clone();
+          caches.open(cacheName).then(cache => cache.put(event.request, responseCopy));
+          return networkResponse;
+        }).catch(() => caches.match(event.request).then(response => response || caches.match("./index.html")))
+      : caches.match(event.request).then(cachedResponse => cachedResponse || fetch(event.request)))
   );
 });
