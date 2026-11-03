@@ -1423,7 +1423,7 @@ function renderEditor() {
   editorPanel.append(createElement("div", "split-line"));
 
   const editorTopline = createElement("div", "edit-topline");
-  editorTopline.append(createElement("h2", "small-heading", "Слова в подборке · " + activeDeck.cards.length));
+  editorTopline.append(createElement("h2", "small-heading", "Слова в подборке · " + activeDeck.cards.length + " · версия 9"));
   const newCardButton = createElement("button", "button secondary small", "＋ Добавить вручную");
   newCardButton.addEventListener("click", () => {
     activeDeck.cards.push({ identifier: createIdentifier(), hanzi: "", pinyin: "", translation: "", spacedRepetition: createEmptySpacedRepetition() });
@@ -1443,29 +1443,32 @@ function renderEditor() {
   });
   editorTopline.append(verifyDeckButton);
   const reversedCards = activeDeck.cards.filter(hasReversedCardColumns);
-  if (reversedCards.length > 0) {
-    const repairColumnsButton = createElement("button", "button secondary small", "⇄ Исправить столбцы (" + reversedCards.length + ")");
-    repairColumnsButton.type = "button";
-    repairColumnsButton.addEventListener("click", () => {
-      const exampleCard = reversedCards[0];
-      if (!window.confirm("Найдены карточки с перепутанными столбцами. Например: «" + exampleCard.hanzi + "» находится в поле иероглифов, а «" + exampleCard.translation + "» — в переводе. Исправить " + reversedCards.length + " карточек? История повторений сохранится. Перед исправлением будет скачана резервная копия.")) return;
-      downloadBackup();
-      for (const card of reversedCards) {
-        const originalRussianTranslation = card.hanzi;
-        card.hanzi = convertToSimplified(card.translation).trim();
-        card.translation = originalRussianTranslation.trim();
-      }
-      const verificationResults = verifyCardsAgainstDictionary(reversedCards);
-      editorReviewSuggestions = verificationResults.mismatches;
-      markCardsUpdated();
-      renderApplication();
-      showToast("Исправлено карточек: " + reversedCards.length + ". Пиньинь заполнен в " + verificationResults.updated + " полях (включая переводы, если были пустыми).");
-    });
-    editorTopline.append(repairColumnsButton);
-  }
+  const repairColumnsButton = createElement("button", "button secondary small", "⇄ Проверить / исправить столбцы" + (reversedCards.length > 0 ? " (" + reversedCards.length + ")" : ""));
+  repairColumnsButton.type = "button";
+  repairColumnsButton.addEventListener("click", () => {
+    const currentlyReversedCards = activeDeck.cards.filter(hasReversedCardColumns);
+    if (currentlyReversedCards.length === 0) {
+      window.alert("В этой подборке не найдено однозначно перепутанных строк. Проверьте, что открыта нужная подборка: в столбце «Иероглифы» должны быть русские слова, а в столбце «Перевод» — китайские знаки. Если они действительно перепутаны, пришлите скриншот редактора.");
+      return;
+    }
+    const exampleCard = currentlyReversedCards[0];
+    if (!window.confirm("Найдены карточки с перепутанными столбцами. Например: «" + exampleCard.hanzi + "» находится в поле иероглифов, а «" + exampleCard.translation + "» — в переводе. Исправить " + currentlyReversedCards.length + " карточек? История повторений сохранится. Перед исправлением будет скачана резервная копия.")) return;
+    downloadBackup();
+    for (const card of currentlyReversedCards) {
+      const originalRussianTranslation = card.hanzi;
+      card.hanzi = convertToSimplified(card.translation).trim();
+      card.translation = originalRussianTranslation.trim();
+    }
+    const verificationResults = verifyCardsAgainstDictionary(currentlyReversedCards);
+    editorReviewSuggestions = verificationResults.mismatches;
+    markCardsUpdated();
+    renderApplication();
+    showToast("Исправлено карточек: " + currentlyReversedCards.length + ". Заполнено полей из словаря: " + verificationResults.updated + ".");
+  });
+  editorTopline.append(repairColumnsButton);
   editorPanel.append(editorTopline);
   if (reversedCards.length > 0) {
-    const reversedColumnsWarning = createElement("div", "editor-verify-note warning", "⚠ Найдено " + reversedCards.length + " карточек, где русский перевод стоит вместо иероглифов. Нажмите «⇄ Исправить столбцы» выше: программа поменяет значения местами и дополнит пиньинь из словаря. Перед исправлением скачает резервную копию; прогресс повторений сохранится.");
+    const reversedColumnsWarning = createElement("div", "editor-verify-note warning", "⚠ Найдено " + reversedCards.length + " карточек, где русский перевод стоит вместо иероглифов. Нажмите «⇄ Проверить / исправить столбцы» выше: программа поменяет значения местами и дополнит пиньинь из словаря. Перед исправлением скачает резервную копию; прогресс повторений сохранится.");
     editorPanel.append(reversedColumnsWarning);
   }
   const verificationNotice = createElement("div", "editor-verify-note" + (!dictionaryFullLoaded ? " warning" : ""), dictionaryFullLoaded
