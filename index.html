@@ -130,6 +130,8 @@
     .feedback.error { background: #ffeaeb; border-color: #e33a3a; color: #b51f2d; }
     .sound-button { display: inline-flex; justify-content: center; align-items: center; gap: 7px; min-width: 44px; min-height: 43px; padding: 8px 13px; border-radius: 11px; background: white; color: var(--ink); border: 1px solid #b5c9ba; font-weight: 600; }
     .sound-button:hover { background: #edf6ed; }
+    .sound-button.tts-fallback { border: 2px solid #db9e43; color: #744600; background: #fff3df; }
+    .sound-button.tts-fallback:hover { background: #ffe9bc; }
     .sound-button:disabled { opacity: .45; cursor: default; }
     .sound-row { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
     .dictionary-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 18px; }
@@ -137,7 +139,7 @@
     .dictionary-toolbar select { flex: 1 1 145px; border: 1px solid #d6dfd5; background: #fff; color: var(--ink); padding: 10px; border-radius: 10px; max-width: 270px; }
     .dictionary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 15px; }
     .dictionary-list { max-height: 550px; overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
-    .dictionary-row { display: grid; grid-template-columns: 27px minmax(80px, 1fr) minmax(90px, 1.05fr) minmax(120px, 1.5fr) 49px; align-items: center; gap: 9px; padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+    .dictionary-row { display: grid; grid-template-columns: 27px minmax(80px, 1fr) minmax(90px, 1.05fr) minmax(120px, 1.5fr) 65px; align-items: center; gap: 9px; padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
     .dictionary-row:last-child { border-bottom: 0; }
     .dictionary-row:hover { background: #f6faf6; }
     .dictionary-row.chosen { background: #eaf6ec; }
@@ -154,6 +156,20 @@
     .dictionary-selection-count { font-weight: 700; }
     .quiz-hanzi { font: 500 clamp(33px, 5vw, 51px)/1.25 "Noto Serif CJK SC", "Microsoft YaHei", serif; overflow-wrap: anywhere; }
     .quiz-pinyin { color: var(--accent); font-size: 13px; }
+    /* Keep Chinese answers large, but render Russian translations at readable text size. */
+    .quiz-translation {
+      display: block;
+      max-width: 100%;
+      font: 500 22px/1.35 Georgia, serif;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: normal;
+      hyphens: none;
+      text-wrap: balance;
+    }
+    .quiz-option .quiz-translation { flex-shrink: 1; min-width: 0; }
+    .quiz-option { min-width: 0; }
+
     .feedback { min-height: 47px; margin-top: 15px; font-weight: 600; }
     .feedback.success { color: var(--green); }
     .feedback.error { color: var(--accent); }
@@ -218,8 +234,12 @@
       .tab { padding: 10px 10px 13px; font-size: 13px; flex-shrink: 0; }
       .toggle { padding-bottom: 12px; }
       .card-surface { min-height: 300px; }
-      .quiz-options { gap: 8px; }
-      .quiz-option { min-height: 122px; }
+      .quiz-options { gap: 9px; }
+      .quiz-option { min-height: 112px; padding: 12px 9px; }
+      .quiz-hanzi { font-size: clamp(30px, 7.4vw, 41px); }
+      .quiz-translation, .quiz-option .russian-text { font-size: clamp(16px, 4.3vw, 19px); line-height: 1.35; word-break: normal; overflow-wrap: normal; hyphens: none; }
+      .quiz-translation.long { font-size: 15px; }
+      .quiz-translation.very-long { font-size: 12px; }
       .panel { padding: 17px; }
       .edit-row { grid-template-columns: 1fr 1fr 1fr 30px; gap: 4px; }
       .edit-row input { font-size: 12px; padding: 8px 5px; }
@@ -229,6 +249,12 @@
       .dictionary-translation { grid-column: 2 / 4; font-size: 12px; }
       .dictionary-level { font-size: 10px; }
       .dictionary-toolbar select { max-width: none; }
+    }
+    @media (max-width: 350px) {
+      .quiz-option { padding: 10px 6px; }
+      .quiz-translation, .quiz-option .russian-text { font-size: 15px; }
+      .quiz-translation.long { font-size: 13px; }
+      .quiz-translation.very-long { font-size: 11px; }
     }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
@@ -267,7 +293,7 @@
         <label class="toggle"><input id="showPinyinToggle" type="checkbox"> Показывать пиньинь</label>
         <label class="audio-select-label" for="audioModeSelect">🔊 Звук:
           <select id="audioModeSelect" class="audio-mode-select">
-            <option value="recording">Записи носителя</option>
+            <option value="recording">Записи носителя (TTS по запросу)</option>
             <option value="speech">Голос устройства (TTS)</option>
           </select>
         </label>
@@ -773,7 +799,14 @@ function renderQuiz() {
     const optionButton = createElement("button", optionClasses);
     optionButton.type = "button";
     optionButton.disabled = isAnswered;
-    optionButton.append(createElement("span", "quiz-hanzi", optionCard.hanzi));
+    const isRussianOption = /[А-Яа-яЁё]/.test(optionCard.hanzi);
+    const longestOptionWordLength = Math.max(0, ...optionCard.hanzi.split(/[\s,;.!?]+/).map(word => word.length));
+    const optionTextClass = isRussianOption
+      ? "quiz-translation" + (longestOptionWordLength > 17 ? " very-long" : longestOptionWordLength > 12 ? " long" : "")
+      : "quiz-hanzi";
+    const optionTextElement = createElement("span", optionTextClass, optionCard.hanzi);
+    optionTextElement.lang = isRussianOption ? "ru" : "zh-CN";
+    optionButton.append(optionTextElement);
     if (applicationState.showPinyin && optionCard.pinyin) optionButton.append(createElement("span", "quiz-pinyin", optionCard.pinyin));
     optionButton.addEventListener("click", () => {
       if (quizQuestion.chosenCardIdentifier !== null) return;
@@ -1259,7 +1292,7 @@ function speakWithDevice(hanzi) {
   };
   window.speechSynthesis.speak(utterance);
 }
-function speakChinese(hanzi) {
+function speakChinese(hanzi, soundButton = null) {
   const simplifiedHanzi = convertToSimplified(hanzi);
   if (currentAudio) {
     currentAudio.pause();
@@ -1268,12 +1301,25 @@ function speakChinese(hanzi) {
     currentAudio = null;
   }
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-  if (audioMode === "speech") { speakWithDevice(simplifiedHanzi); return; }
+  // Never silently replace a missing native-speaker recording with an unverified synthetic voice.
+  // The user must explicitly press the highlighted TTS button a second time.
+  if (audioMode === "speech" || (soundButton && soundButton.dataset.audioFallback === "speech")) {
+    speakWithDevice(simplifiedHanzi);
+    return;
+  }
   const recordingPath = encodeURIComponent(simplifiedHanzi).replace(/%20/g, "");
   let sourceIndex = 0;
   function playFromSource() {
     if (sourceIndex >= nativeAudioBaseUrls.length) {
-      showToast("Для этого слова нет доступной записи носителя. Можно выбрать голос устройства в меню «Звук» (его тоны требуют проверки).");
+      currentAudio = null;
+      if (soundButton && soundButton.isConnected) {
+        soundButton.dataset.audioFallback = "speech";
+        soundButton.classList.add("tts-fallback");
+        soundButton.textContent = "🔈 TTS";
+        soundButton.title = "Запись носителя недоступна. Нажмите для синтеза речи zh-CN; тоны и изменения тонов требуют проверки.";
+        soundButton.setAttribute("aria-label", "Произнести синтезатором " + simplifiedHanzi + ", возможны ошибки тонов");
+      }
+      showToast("Запись носителя для «" + simplifiedHanzi + "» не найдена или недоступна. Нажмите «TTS» для запасного голоса (тоны нужно проверить).");
       return;
     }
     const recordingUrl = nativeAudioBaseUrls[sourceIndex++] + recordingPath + ".mp3";
@@ -1298,7 +1344,7 @@ function createSoundButton(hanzi) {
   soundButton.type = "button";
   soundButton.title = audioMode === "recording" ? "Запись носителя путунхуа (нужен интернет)" : "Системный голос zh-CN: проверьте тоны";
   soundButton.setAttribute("aria-label", "Прослушать слово " + hanzi);
-  soundButton.addEventListener("click", event => { event.stopPropagation(); speakChinese(hanzi); });
+  soundButton.addEventListener("click", event => { event.stopPropagation(); speakChinese(hanzi, soundButton); });
   return soundButton;
 }
 
@@ -1476,7 +1522,7 @@ function renderDictionary() {
   sourceElement.append(sourceLink, ". Упрощённые формы и уровни HSK на основе complete-hsk-vocabulary (MIT). Русские переводы справочные: при сомнении сверяйте со словарём. Разные версии HSK не совпадают по составу.");
   panelElement.append(sourceElement);
   const audioAttribution = createElement("p", "dictionary-source");
-  audioAttribution.append("Звук: записи носителя Yue Tan (SWAC), обработка Hugo Lopez и соавторы, CC BY-SA. Записи требуют интернета; не все слова представлены. Запасной синтезатор zh-CN может ошибаться в тонах. ");
+  audioAttribution.append("Звук: записи носителя Yue Tan (SWAC), обработка Hugo Lopez и соавторы, CC BY-SA. Записи требуют интернета; не все слова представлены. Если запись недоступна, кнопка предложит TTS — только по отдельному нажатию, поскольку синтезатор может ошибаться в тонах. ");
   const audioAttributionLink = createElement("a", "", "Источник записей");
   audioAttributionLink.href = "https://github.com/hugolpz/audio-cmn";
   audioAttributionLink.target = "_blank";

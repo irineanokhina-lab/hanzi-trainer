@@ -1,6 +1,6 @@
 "use strict";
 
-const cacheName = "hanzi-trainer-static-v4";
+const cacheName = "hanzi-trainer-static-v6";
 const cachedFiles = [
   "./",
   "./index.html",
