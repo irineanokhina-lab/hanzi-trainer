@@ -256,6 +256,35 @@
       .quiz-translation.long { font-size: 13px; }
       .quiz-translation.very-long { font-size: 11px; }
     }
+    /* Dictionary validation and evidence-based character structure */
+    .editor-verify-note { background: #eef3ed; padding: 12px 14px; border-radius: 10px; color: #365845; font-size: 13px; margin: 12px 0; line-height: 1.5; }
+    .editor-verify-note.warning { background: #fff3e9; color: #755334; }
+    .editor-suggestions { border: 1px solid #e4d7bd; border-radius: 12px; margin: 14px 0; padding: 14px; }
+    .editor-suggestion { border-top: 1px solid #e9e9e4; padding-top: 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+    .editor-suggestion strong { font-size: 15px; }
+    .character-analysis-button { border: 1px solid #bacdc1; border-radius: 9px; padding: 7px 12px; background: #f4f8f4; color: #28533e; cursor: pointer; font-size: 13px; }
+    .character-analysis-button:hover { border-color: #5e9476; background: #e9f4eb; }
+    .dictionary-character-analysis { display: block; width: fit-content; margin-top: 6px; font-size: 12px; padding: 4px 8px; }
+    .character-analysis-dialog { width: min(650px, calc(100vw - 24px)); max-height: min(85vh, 900px); overflow-y: auto; border: 1px solid #d2dfd2; padding: 0; border-radius: 20px; background: #fcfdfa; color: #203a30; box-shadow: 0 22px 85px #122a2460; }
+    .character-analysis-dialog::backdrop { background: #102a22b9; }
+    .character-analysis-header { position: sticky; top: 0; background: #fcfdfa; padding: 17px 22px; border-bottom: 1px solid #dae6da; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; z-index: 1; }
+    .character-analysis-header h2 { margin: 0; font-size: 21px; }
+    .character-analysis-body { padding: 20px 22px 25px; }
+    .character-analysis-word { font-size: 36px; font-family: 'Noto Serif CJK SC', 'Microsoft YaHei', serif; line-height: 1.4; }
+    .character-analysis-glyph { font-size: 62px; font-family: 'Noto Serif CJK SC', 'Microsoft YaHei', serif; line-height: 1.3; }
+    .character-analysis-character { border: 1px solid #e0e9dc; border-radius: 14px; padding: 13px 16px; margin-top: 14px; }
+    .character-analysis-charhead { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+    .character-analysis-meaning { font-size: 13px; color: #57715f; max-width: 420px; line-height: 1.4; }
+    .character-analysis-details { margin-top: 10px; font-size: 14px; line-height: 1.6; }
+    .character-analysis-components { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 11px; }
+    .character-analysis-part { display: flex; align-items: center; gap: 8px; border: 1px solid #dce5da; border-radius: 9px; padding: 6px 10px; background: #f5f8f4; }
+    .character-analysis-part .glyph { font-size: 29px; line-height: 1.2; font-family: 'Noto Serif CJK SC', serif; }
+    .character-analysis-part .meaning { color: #59705f; font-size: 12px; max-width: 180px; line-height: 1.35; }
+    .character-analysis-hint { font-size: 12px; color: #6f8172; line-height: 1.6; margin-top: 10px; }
+    .character-analysis-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .character-analysis-close { padding: 6px 11px; font-size: 20px; border: 0; border-radius: 8px; cursor: pointer; background: #edf3eb; color: #244234; }
+    .character-analysis-source { font-size: 12px; color: #647c69; line-height: 1.5; margin-top: 17px; }
+    .character-analysis-source a { color: #35674a; }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
@@ -641,7 +670,7 @@ function renderReview() {
       answerElement.append(createElement("span", "pinyin", targetCard.pinyin));
     }
     questionElement.append(answerElement);
-    if (reviewQuestion.isRevealed) { questionElement.append(createSoundButton(targetCard.hanzi)); showPronunciationNote(questionElement, targetCard.hanzi); }
+    if (reviewQuestion.isRevealed) { questionElement.append(createSoundButton(targetCard.hanzi), createCharacterAnalysisButton(targetCard.hanzi)); showPronunciationNote(questionElement, targetCard.hanzi); }
     activeViewElement.append(questionElement);
     if (!reviewQuestion.isRevealed) {
       const showAnswerControls = createElement("div", "controls");
@@ -716,7 +745,7 @@ function renderFlashcards() {
   });
   activeViewElement.append(flashcardButton);
   const soundControlsElement = createElement("div", "sound-row");
-  soundControlsElement.append(createSoundButton(currentCard.hanzi));
+  soundControlsElement.append(createSoundButton(currentCard.hanzi), createCharacterAnalysisButton(currentCard.hanzi));
   activeViewElement.append(soundControlsElement);
   showPronunciationNote(activeViewElement, currentCard.hanzi);
 
@@ -785,7 +814,11 @@ function renderQuiz() {
   }
   const targetCard = cards.find(card => card.identifier === quizQuestion.targetCardIdentifier);
   const questionElement = createElement("div", "quiz-prompt");
-  questionElement.append(createElement("small", "", "Выберите правильные иероглифы"));
+  const optionsContainRussianText = quizQuestion.optionCardIdentifiers.some(optionCardIdentifier => {
+    const optionCard = cards.find(card => card.identifier === optionCardIdentifier);
+    return optionCard && /[А-Яа-яЁё]/.test(optionCard.hanzi);
+  });
+  questionElement.append(createElement("small", "", optionsContainRussianText ? "Выберите правильный перевод" : "Выберите правильные иероглифы"));
   questionElement.append(createElement("strong", "", targetCard.translation));
   questionElement.append(createElement("div", "review-status", quizQuestion.chosenCardIdentifier !== null ? (quizQuestion.wasScheduled ? "Повторение учтено" : "Свободная тренировка") : (isCardDue(targetCard) ? "Слово к повторению · результат повлияет на расписание" : "Свободная тренировка")));
   activeViewElement.append(questionElement);
@@ -833,7 +866,7 @@ function renderQuiz() {
     if (quizQuestion.wasScheduled) feedbackElement.append(createElement("div", "review-status", "Следующее повторение: " + formatReviewDate(new Date(targetCard.spacedRepetition.dueAt))));
   }
   activeViewElement.append(feedbackElement);
-  if (quizQuestion.chosenCardIdentifier !== null) { activeViewElement.append(createSoundButton(targetCard.hanzi)); showPronunciationNote(activeViewElement, targetCard.hanzi); }
+  if (quizQuestion.chosenCardIdentifier !== null) { activeViewElement.append(createSoundButton(targetCard.hanzi), createCharacterAnalysisButton(targetCard.hanzi)); showPronunciationNote(activeViewElement, targetCard.hanzi); }
   const controlsElement = createElement("div", "controls");
   controlsElement.append(createElement("span", "counter", "Верных ответов: " + activeDeck.statistics.quizCorrect + " из " + activeDeck.statistics.quizAttempts));
   const nextQuestionButton = createElement("button", "button", "Следующий вопрос →");
@@ -936,7 +969,7 @@ function renderAssembly() {
     if (assemblyQuestion.wasScheduled) feedbackElement.append(createElement("div", "review-status", "Следующее повторение: " + formatReviewDate(new Date(targetCard.spacedRepetition.dueAt))));
   }
   activeViewElement.append(feedbackElement);
-  if (assemblyQuestion.checked && assemblyQuestion.correct) { activeViewElement.append(createSoundButton(targetCard.hanzi)); showPronunciationNote(activeViewElement, targetCard.hanzi); }
+  if (assemblyQuestion.checked && assemblyQuestion.correct) { activeViewElement.append(createSoundButton(targetCard.hanzi), createCharacterAnalysisButton(targetCard.hanzi)); showPronunciationNote(activeViewElement, targetCard.hanzi); }
 
   const controlsElement = createElement("div", "controls");
   const resetButton = createElement("button", "button secondary", "Очистить ответ");
@@ -976,6 +1009,315 @@ function renderAssemblyIntoView() {
   renderAssembly();
 }
 
+
+// Character decomposition is descriptive, not an automatic explanation of a word's etymology.
+// Make Me a Hanzi: source https://github.com/skishore/makemeahanzi, dictionary.txt (LGPL-3.0-or-later).
+const characterAnalysisSourceUrls = [
+  "https://cdn.jsdelivr.net/gh/skishore/makemeahanzi@master/dictionary.txt",
+  "https://raw.githubusercontent.com/skishore/makemeahanzi/master/dictionary.txt"
+];
+const characterAnalysisDatabaseName = "hanzi-component-analysis-v1";
+const characterAnalysisDatabaseStore = "files";
+const characterAnalysisOperators = { "⿰": 2, "⿱": 2, "⿲": 3, "⿳": 3, "⿴": 2, "⿵": 2, "⿶": 2, "⿷": 2, "⿸": 2, "⿹": 2, "⿺": 2, "⿻": 2 };
+const characterAnalysisStructureLabels = { "⿰": "слева и справа", "⿱": "сверху и снизу", "⿲": "три части по горизонтали", "⿳": "три части по вертикали", "⿴": "внутри рамки", "⿵": "открытая снизу рамка", "⿶": "открытая сверху рамка", "⿷": "открытая справа рамка", "⿸": "верхний левый угол", "⿹": "верхний правый угол", "⿺": "нижний левый угол", "⿻": "наложенные части" };
+// Meanings of common independent components and traditional radical variants (not invented derivations).
+const characterComponentMeanings = {
+  "一":"один; горизонтальная черта", "丨":"вертикальная черта", "丶":"точка", "丿":"наклонная черта", "乙":"изгиб", "亅":"крюк",
+  "二":"два", "三":"три", "人":"человек", "亻":"человек (вариант 人)", "入":"входить", "八":"восемь; разделение", "冂":"обрамление", "冖":"покрывало",
+  "冫":"лёд (вариант 冰)", "冰":"лёд", "几":"столик", "凵":"открытая ёмкость", "刀":"нож", "刂":"нож (вариант 刀)", "力":"сила",
+  "勹":"охватывать", "匕":"ложка", "匚":"короб", "十":"десять", "卜":"гадание", "卩":"печать", "厂":"обрыв", "厶":"личный", "又":"снова; правая рука",
+  "口":"рот", "囗":"ограждение", "土":"земля", "士":"учёный; служилый", "夂":"идти медленно", "夕":"вечер", "大":"большой", "女":"женщина",
+  "子":"ребёнок", "孑":"ребёнок (вариант)", "宀":"крыша", "寸":"мера длины; большой палец", "小":"маленький", "⺌":"маленький (вариант 小)",
+  "尢":"хромой", "尸":"тело; труп", "山":"гора", "巛":"река", "川":"река", "工":"работа; труд", "己":"себя", "巾":"полотнище", "干":"сухой; щит",
+  "幺":"тонкая нить", "广":"навес", "廴":"длинный шаг", "廾":"две руки", "弋":"стрела с верёвкой", "弓":"лук", "彐":"свиная голова",
+  "彡":"три штриха; узор", "彳":"шаг левой ногой", "心":"сердце", "忄":"сердце (вариант 心)", "⺗":"сердце (вариант 心)",
+  "戈":"алебарда", "户":"дверь", "手":"рука", "扌":"рука (вариант 手)", "攴":"ударять", "攵":"ударять (вариант 攴)", "文":"письменность; узор",
+  "斗":"ковш", "斤":"топор", "方":"сторона; направление", "无":"нет", "日":"солнце; день", "曰":"говорить", "月":"луна; месяц", "肉":"мясо",
+  "⺼":"плоть; тело (вариант 肉)", "木":"дерево", "朩":"дерево (вариант 木)", "欠":"недоставать", "止":"останавливаться", "歹":"смерть; останки",
+  "殳":"древко; оружие", "母":"мать", "比":"сравнивать", "毛":"шерсть", "氏":"род", "气":"пар; воздух", "水":"вода", "氵":"вода (вариант 水)", "氺":"вода (вариант 水)",
+  "火":"огонь", "灬":"огонь (вариант 火)", "爪":"коготь", "爫":"коготь (вариант 爪)", "父":"отец", "爻":"пересечения", "牛":"бык",
+  "牜":"бык (вариант 牛)", "犬":"собака", "犭":"собака (вариант 犬)", "玉":"нефрит", "王":"царь; правитель", "⺩":"нефрит (вариант 玉)",
+  "瓦":"черепица", "甘":"сладкий", "生":"жизнь; рождаться", "用":"использовать", "田":"поле", "疒":"болезнь", "癶":"следы ног",
+  "白":"белый", "皮":"кожа", "皿":"сосуд", "目":"глаз", "矛":"копьё", "矢":"стрела", "石":"камень", "示":"алтарь; показывать", "礻":"алтарь (вариант 示)",
+  "禾":"злак", "穴":"пещера; отверстие", "立":"стоять", "竹":"бамбук", "⺮":"бамбук (вариант 竹)", "米":"рис", "糸":"шёлковая нить", "纟":"нить (упрощённый вариант 糸)",
+  "缶":"глиняный сосуд", "网":"сеть", "罒":"сеть (вариант 网)", "羊":"овца", "羽":"перья", "老":"старый", "而":"и; но", "耒":"плуг", "耳":"ухо",
+  "聿":"кисть для письма", "肉":"мясо", "臣":"слуга; сановник", "自":"сам", "至":"достигать", "臼":"ступка", "舌":"язык", "舟":"лодка", "艮":"остановиться",
+  "色":"цвет", "艹":"трава (вариант 艸)", "艸":"трава", "虍":"тигр", "虫":"насекомое", "血":"кровь", "行":"идти", "衣":"одежда", "衤":"одежда (вариант 衣)",
+  "西":"запад", "见":"видеть", "角":"рог", "言":"речь", "讠":"речь (упрощённый вариант 言)", "谷":"долина", "豆":"боб", "豕":"свинья", "贝":"раковина; деньги",
+  "赤":"красный", "走":"ходить", "足":"ступня; нога", "⻊":"ступня (вариант 足)", "身":"тело", "车":"повозка", "辛":"острый; горький",
+  "辰":"утро", "辶":"движение (вариант 辵)", "邑":"город", "阝":"холм или город (зависит от положения)", "酉":"сосуд для вина", "里":"деревня; внутри",
+  "金":"металл; золото", "钅":"металл (вариант 金)", "长":"длинный", "门":"ворота; дверь", "阜":"холм", "隹":"короткохвостая птица", "雨":"дождь",
+  "青":"сине-зелёный", "非":"неправильный; не", "面":"лицо", "革":"кожа", "音":"звук", "页":"голова; страница", "风":"ветер", "飞":"летать",
+  "食":"еда; есть", "饣":"еда (вариант 食)", "首":"голова", "香":"аромат", "马":"лошадь", "骨":"кости", "高":"высокий", "鬼":"дух",
+  "鱼":"рыба", "鸟":"птица", "黑":"чёрный", "麻":"конопля", "黄":"жёлтый", "鼓":"барабан", "鼻":"нос", "齿":"зубы",
+  "习":"учиться; упражняться", "马":"лошадь", "主":"главный; хозяин", "包":"заворачивать; упаковка", "巴":"ждать; прилипать", "可":"можно; разрешено",
+  "也":"тоже", "今":"сегодня; сейчас", "云":"облако; говорить", "古":"древний", "寺":"храм", "兑":"обменивать", "隹":"короткохвостая птица",
+  "采":"собирать", "兄":"старший брат", "乃":"только тогда", "亡":"погибать; исчезать", "分":"делить", "且":"и; к тому же"
+};
+// A few transparent offline illustrations; the full verified analysis is downloaded on request.
+const characterAnalysisOfflineExamples = {
+  "好": { radical:"女", decomposition:"⿰女子" },
+  "明": { radical:"日", decomposition:"⿰日月" },
+  "休": { radical:"亻", decomposition:"⿰亻木" },
+  "林": { radical:"木", decomposition:"⿰木木" },
+  "妈": { radical:"女", decomposition:"⿰女马" },
+  "吗": { radical:"口", decomposition:"⿰口马" },
+  "问": { radical:"门", decomposition:"⿵门口" }
+};
+let characterAnalysisRecords = new Map();
+let characterAnalysisLoaded = false;
+let characterAnalysisLoadingPromise = null;
+let characterAnalysisStatus = "";
+
+function getCharacterComponentMeaning(character) {
+  if (characterComponentMeanings[character]) return characterComponentMeanings[character];
+  const singleCharacterDictionaryEntries = dictionaryEntries.filter(entry => entry.hanzi === character);
+  if (singleCharacterDictionaryEntries.length === 1) return singleCharacterDictionaryEntries[0].translation + " (как отдельный знак)";
+  return "Значение не подтверждено";
+}
+
+function getCharacterDecompositionLeaves(decomposition) {
+  const decompositionCharacters = Array.from(decomposition || "");
+  function parseComponentTree(currentPosition) {
+    const character = decompositionCharacters[currentPosition];
+    if (!character) return { leaves: [], nextPosition: currentPosition + 1 };
+    const numberOfParts = characterAnalysisOperators[character];
+    if (!numberOfParts) return { leaves: character === "？" || character === "?" ? [] : [character], nextPosition: currentPosition + 1 };
+    const componentLeaves = [];
+    let nextPosition = currentPosition + 1;
+    for (let partIndex = 0; partIndex < numberOfParts; partIndex++) {
+      const parsedPart = parseComponentTree(nextPosition);
+      componentLeaves.push(...parsedPart.leaves);
+      nextPosition = parsedPart.nextPosition;
+    }
+    return { leaves: componentLeaves, nextPosition };
+  }
+  if (decompositionCharacters.length === 0 || !characterAnalysisOperators[decompositionCharacters[0]]) return [];
+  return [...new Set(parseComponentTree(0).leaves)];
+}
+
+function readCharacterAnalysisOfflineCache() {
+  return new Promise(resolve => {
+    if (!("indexedDB" in window)) { resolve(null); return; }
+    try {
+      const openRequest = indexedDB.open(characterAnalysisDatabaseName, 1);
+      openRequest.onupgradeneeded = () => openRequest.result.createObjectStore(characterAnalysisDatabaseStore);
+      openRequest.onerror = () => resolve(null);
+      openRequest.onsuccess = () => {
+        const database = openRequest.result;
+        const transaction = database.transaction(characterAnalysisDatabaseStore, "readonly");
+        const readRequest = transaction.objectStore(characterAnalysisDatabaseStore).get("dictionary");
+        readRequest.onsuccess = () => resolve(readRequest.result || null);
+        readRequest.onerror = () => resolve(null);
+        transaction.oncomplete = () => database.close();
+      };
+    } catch (error) { resolve(null); }
+  });
+}
+
+function storeCharacterAnalysisOfflineCache(dictionaryRecordEntries) {
+  return new Promise(resolve => {
+    if (!("indexedDB" in window)) { resolve(false); return; }
+    try {
+      const openRequest = indexedDB.open(characterAnalysisDatabaseName, 1);
+      openRequest.onupgradeneeded = () => openRequest.result.createObjectStore(characterAnalysisDatabaseStore);
+      openRequest.onerror = () => resolve(false);
+      openRequest.onsuccess = () => {
+        const database = openRequest.result;
+        const transaction = database.transaction(characterAnalysisDatabaseStore, "readwrite");
+        transaction.objectStore(characterAnalysisDatabaseStore).put(dictionaryRecordEntries, "dictionary");
+        transaction.oncomplete = () => { database.close(); resolve(true); };
+        transaction.onerror = () => { database.close(); resolve(false); };
+      };
+    } catch (error) { resolve(false); }
+  });
+}
+
+async function loadCharacterAnalysisDictionary() {
+  if (characterAnalysisLoaded) return true;
+  if (characterAnalysisLoadingPromise) return characterAnalysisLoadingPromise;
+  characterAnalysisLoadingPromise = (async () => {
+    const savedRecords = await readCharacterAnalysisOfflineCache();
+    if (Array.isArray(savedRecords) && savedRecords.length > 5000) {
+      characterAnalysisRecords = new Map(savedRecords);
+      characterAnalysisLoaded = true;
+      characterAnalysisStatus = "Разбор иероглифов загружен из памяти телефона — доступен без сети.";
+      return true;
+    }
+    if (navigator.onLine === false) {
+      characterAnalysisStatus = "Нет сети: доступны только несколько встроенных примеров. Для полного разбора откройте его один раз с интернетом.";
+      return false;
+    }
+    for (const sourceUrl of characterAnalysisSourceUrls) {
+      try {
+        const response = await fetch(sourceUrl, { cache: "force-cache" });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const sourceText = await response.text();
+        const records = new Map();
+        for (const recordLine of sourceText.split(/\r?\n/)) {
+          if (!recordLine.trim()) continue;
+          const sourceRecord = JSON.parse(recordLine);
+          if (!sourceRecord.character || !sourceRecord.radical) continue;
+          records.set(sourceRecord.character, {
+            radical: sourceRecord.radical,
+            decomposition: sourceRecord.decomposition || "",
+            etymology: sourceRecord.etymology?.type === "pictophonetic"
+              ? { phonetic: sourceRecord.etymology.phonetic || "", semantic: sourceRecord.etymology.semantic || "" }
+              : null
+          });
+        }
+        if (records.size < 5000) throw new Error("Неполный файл разбора иероглифов");
+        const dictionaryRecordEntries = [...records.entries()];
+        characterAnalysisRecords = records;
+        characterAnalysisLoaded = true;
+        const isSaved = await storeCharacterAnalysisOfflineCache(dictionaryRecordEntries);
+        characterAnalysisStatus = isSaved
+          ? "Данные Make Me a Hanzi сохранены на устройстве — разбор доступен без сети."
+          : "Данные загружены, но сохранить их офлайн не удалось (ограничение памяти браузера).";
+        return true;
+      } catch (error) {
+        console.warn("Не удалось загрузить разбор иероглифов:", sourceUrl, error);
+      }
+    }
+    characterAnalysisStatus = "Источник разбора недоступен. Показаны только встроенные проверенные примеры; остальные данные не угадываются.";
+    return false;
+  })();
+  try { return await characterAnalysisLoadingPromise; }
+  finally { characterAnalysisLoadingPromise = null; }
+}
+
+function createCharacterAnalysisButton(hanzi, className = "character-analysis-button") {
+  const analysisButton = createElement("button", className, "拆 Разбор");
+  analysisButton.type = "button";
+  analysisButton.setAttribute("aria-label", "Разобрать иероглифы " + hanzi);
+  analysisButton.addEventListener("click", event => {
+    event.stopPropagation();
+    openCharacterAnalysis(hanzi);
+  });
+  return analysisButton;
+}
+
+function openCharacterAnalysis(hanzi) {
+  const characters = [...new Set(Array.from(convertToSimplified(hanzi).replace(/\s+/g, "")).filter(character => /\p{Script=Han}/u.test(character)))];
+  if (characters.length === 0) { showToast("Для разбора нужны китайские иероглифы."); return; }
+  const existingDialog = document.querySelector(".character-analysis-dialog");
+  if (existingDialog) existingDialog.remove();
+  const analysisDialog = createElement("dialog", "character-analysis-dialog");
+  const dialogHeader = createElement("div", "character-analysis-header");
+  const dialogTitle = createElement("h2", "", "Состав иероглифов");
+  const closeDialogButton = createElement("button", "character-analysis-close", "×");
+  closeDialogButton.type = "button";
+  closeDialogButton.setAttribute("aria-label", "Закрыть разбор");
+  closeDialogButton.addEventListener("click", () => analysisDialog.close());
+  dialogHeader.append(dialogTitle, closeDialogButton);
+  const dialogBody = createElement("div", "character-analysis-body");
+  analysisDialog.append(dialogHeader, dialogBody);
+  analysisDialog.addEventListener("close", () => analysisDialog.remove());
+  analysisDialog.addEventListener("click", event => { if (event.target === analysisDialog) analysisDialog.close(); });
+  document.body.append(analysisDialog);
+  analysisDialog.showModal();
+
+  function renderCharacterAnalysisContents() {
+    if (!analysisDialog.isConnected) return;
+    dialogBody.replaceChildren();
+    dialogBody.append(createElement("div", "character-analysis-word", hanzi));
+    const matchingCard = applicationState.decks.flatMap(deck => deck.cards).find(card => card.hanzi === hanzi);
+    const matchingDictionary = dictionaryEntries.find(entry => entry.hanzi === hanzi);
+    if (matchingCard?.translation || matchingDictionary?.translation) {
+      dialogBody.append(createElement("p", "character-analysis-meaning", "Значение слова: " + (matchingCard?.translation || matchingDictionary.translation)));
+    }
+    for (const character of characters) {
+      const sourceRecord = characterAnalysisRecords.get(character) || characterAnalysisOfflineExamples[character];
+      const characterCard = createElement("div", "character-analysis-character");
+      const characterHead = createElement("div", "character-analysis-charhead");
+      characterHead.append(createElement("div", "character-analysis-glyph", character));
+      characterHead.append(createElement("div", "character-analysis-meaning", "Самостоятельное значение: " + getCharacterComponentMeaning(character)));
+      characterCard.append(characterHead);
+      if (!sourceRecord) {
+        characterCard.append(createElement("p", "character-analysis-hint", "Для этого иероглифа пока нет подтверждённого разбора."));
+        dialogBody.append(characterCard);
+        continue;
+      }
+      const details = createElement("div", "character-analysis-details");
+      details.append(createElement("div", "", "Словарный ключ: " + sourceRecord.radical + " — " + getCharacterComponentMeaning(sourceRecord.radical)));
+      const componentCharacters = getCharacterDecompositionLeaves(sourceRecord.decomposition);
+      if (componentCharacters.length > 0) {
+        details.append(createElement("div", "", "Графические компоненты:"));
+        const componentsList = createElement("div", "character-analysis-components");
+        for (const componentCharacter of componentCharacters) {
+          const componentElement = createElement("div", "character-analysis-part");
+          componentElement.append(createElement("span", "glyph", componentCharacter), createElement("span", "meaning", getCharacterComponentMeaning(componentCharacter)));
+          componentsList.append(componentElement);
+        }
+        details.append(componentsList);
+        const structureDescription = characterAnalysisStructureLabels[Array.from(sourceRecord.decomposition)[0]];
+        if (structureDescription) details.append(createElement("div", "character-analysis-hint", "Расположение: " + structureDescription + ". Исходная схема: " + sourceRecord.decomposition));
+        if (sourceRecord.decomposition.includes("？") || sourceRecord.decomposition.includes("?")) {
+          details.append(createElement("div", "character-analysis-hint", "⚠ Схема неполная: некоторые части в источнике не определены."));
+        }
+      } else {
+        details.append(createElement("div", "character-analysis-hint", "В источнике нет полного надёжного разложения на компоненты."));
+      }
+      if (sourceRecord.etymology?.semantic || sourceRecord.etymology?.phonetic) {
+        const roles = [];
+        if (sourceRecord.etymology.semantic) roles.push("смысловой: " + sourceRecord.etymology.semantic);
+        if (sourceRecord.etymology.phonetic) roles.push("фонетический: " + sourceRecord.etymology.phonetic);
+        details.append(createElement("div", "character-analysis-hint", "Указанные в источнике роли: " + roles.join("; ") + "."));
+      }
+      characterCard.append(details);
+      dialogBody.append(characterCard);
+    }
+    const statusElement = createElement("div", "character-analysis-hint", characterAnalysisStatus || "Загружаем проверенный словарь разбора, если есть интернет…");
+    dialogBody.append(statusElement);
+    const sourceElement = createElement("div", "character-analysis-source");
+    sourceElement.append("Источник графического разбора и словарных ключей: ");
+    const sourceLink = createElement("a", "", "Make Me a Hanzi (LGPL-3.0+)");
+    sourceLink.href = "https://github.com/skishore/makemeahanzi";
+    sourceLink.target = "_blank";
+    sourceLink.rel = "noopener noreferrer";
+    sourceElement.append(sourceLink, ". Значения показаны для компонентов как отдельных знаков; они не всегда объясняют значение всего иероглифа. ");
+    dialogBody.append(sourceElement);
+  }
+
+  renderCharacterAnalysisContents();
+  loadCharacterAnalysisDictionary().then(() => renderCharacterAnalysisContents());
+}
+
+// Match complete words, not individual glyphs; ambiguous pronunciations require manual review.
+function getReliableDictionaryMatch(hanzi) {
+  const normalizedHanzi = convertToSimplified(String(hanzi || "").trim());
+  const matches = dictionaryEntries.filter(entry => entry.hanzi === normalizedHanzi);
+  if (matches.length === 0) return { status: "missing", entry: null };
+  const readings = new Set(matches.map(entry => entry.pinyin.trim().toLocaleLowerCase("ru-RU")));
+  const meanings = new Set(matches.map(entry => entry.translation.trim().toLocaleLowerCase("ru-RU")));
+  if (readings.size > 1 || meanings.size > 1) return { status: "ambiguous", entry: null };
+  const preferredEntry = [...matches].sort((firstEntry, secondEntry) => (firstEntry.newLevel || 9) - (secondEntry.newLevel || 9))[0];
+  return { status: "found", entry: preferredEntry };
+}
+
+let editorReviewSuggestions = [];
+function verifyCardsAgainstDictionary(cards) {
+  const results = { matched: 0, updated: 0, missing: 0, ambiguous: 0, mismatches: [] };
+  for (const card of cards) {
+    card.hanzi = convertToSimplified(card.hanzi).trim();
+    if (!card.hanzi) continue;
+    const dictionaryMatch = getReliableDictionaryMatch(card.hanzi);
+    if (dictionaryMatch.status === "missing") { results.missing++; continue; }
+    if (dictionaryMatch.status === "ambiguous") { results.ambiguous++; continue; }
+    results.matched++;
+    for (const fieldName of ["pinyin", "translation"]) {
+      const currentValue = String(card[fieldName] || "").trim();
+      const suggestedValue = String(dictionaryMatch.entry[fieldName] || "").trim();
+      if (!suggestedValue) continue;
+      if (!currentValue) { card[fieldName] = suggestedValue; results.updated++; }
+      else if (currentValue.normalize("NFC").toLocaleLowerCase("ru-RU") !== suggestedValue.normalize("NFC").toLocaleLowerCase("ru-RU")) {
+        results.mismatches.push({ cardIdentifier: card.identifier, hanzi: card.hanzi, fieldName, currentValue, suggestedValue });
+      }
+    }
+  }
+  return results;
+}
+
 function parsePastedCards(text) {
   const parsedCards = [];
   let ignoredLineCount = 0;
@@ -984,13 +1326,13 @@ function parsePastedCards(text) {
     const line = lines[lineIndex];
     if (!line.trim()) continue;
     const columns = line.split("\t").map(value => value.trim());
-    if (columns.length < 2) { ignoredLineCount += 1; continue; }
     const [hanzi, pinyin, translation] = columns.length >= 3
       ? [columns[0], columns[1], columns.slice(2).join("; ")]
-      : [columns[0], "", columns[1]];
-    const looksLikeHeader = lineIndex === 0 && /^(иероглиф|漢字|汉字|traditional|character|слово)$/i.test(hanzi) && /^(pinyin|пиньин|перевод|translation|русский)$/i.test(columns[1]);
+      : [columns[0], "", columns[1] || ""];
+    const looksLikeHeader = lineIndex === 0 && /^(иероглифы?|漢字|汉字|traditional|simplified|character|слово)$/i.test(hanzi)
+      && (columns.length === 1 || /^(pinyin|пиньин|перевод|translation|русский)$/i.test(columns[1]));
     if (looksLikeHeader) continue;
-    if (!hanzi || !translation) { ignoredLineCount += 1; continue; }
+    if (!hanzi) { ignoredLineCount += 1; continue; }
     parsedCards.push({ identifier: createIdentifier(), hanzi: convertToSimplified(hanzi), pinyin, translation, spacedRepetition: createEmptySpacedRepetition() });
   }
   return { parsedCards, ignoredLineCount };
@@ -1022,10 +1364,10 @@ function renderEditor() {
   nameField.append(nameInput);
   editorPanel.append(nameField);
   editorPanel.append(createElement("h2", "small-heading", "Вставить из Google Таблиц"));
-  editorPanel.append(createElement("p", "description", "Выделите строки в таблице, скопируйте и вставьте сюда. Поддерживаются 2 или 3 столбца; пиньинь необязателен."));
+  editorPanel.append(createElement("p", "description", "Выделите строки в таблице, скопируйте и вставьте сюда. Можно вставить даже один столбец с иероглифами. Пиньинь и перевод заполнятся из словаря, если слово найдено однозначно. Введённые вручную значения не переписываются без подтверждения."));
   editorPanel.append(createElement("div", "import-example", "你好\tnǐ hǎo\tздравствуйте\n谢谢\txiè xie\tспасибо\n朋友\tpéng you\tдруг"));
   const pasteField = createElement("textarea", "textarea");
-  pasteField.placeholder = "Иероглифы [Tab] Пиньинь [Tab] Перевод на русском\nили: Иероглифы [Tab] Перевод";
+  pasteField.placeholder = "Иероглифы\nили: Иероглифы [Tab] Перевод\nили: Иероглифы [Tab] Пиньинь [Tab] Перевод";
   pasteField.setAttribute("aria-label", "Строки из Google Таблиц");
   editorPanel.append(pasteField);
   const importControls = createElement("div", "controls");
@@ -1033,7 +1375,7 @@ function renderEditor() {
   const replaceRowsButton = createElement("button", "button secondary", "Заменить все карточки");
   function importRows(replaceExisting) {
     const { parsedCards, ignoredLineCount } = parsePastedCards(pasteField.value);
-    if (parsedCards.length === 0) { showToast("Вставьте хотя бы одну строку с иероглифами и переводом."); return; }
+    if (parsedCards.length === 0) { showToast("Вставьте хотя бы одну строку с иероглифами."); return; }
     if (replaceExisting && !window.confirm("Заменить все карточки в этой подборке? Это удалит прежние слова и их историю повторений.")) return;
     const existingHanzi = new Set(replaceExisting ? [] : activeDeck.cards.map(card => String(card.hanzi || "").trim()));
     let duplicateCount = 0;
@@ -1043,11 +1385,13 @@ function renderEditor() {
       existingHanzi.add(card.hanzi);
       newCards.push(card);
     }
+    const verificationResults = verifyCardsAgainstDictionary(newCards);
+    editorReviewSuggestions = verificationResults.mismatches;
     if (replaceExisting) activeDeck.cards = newCards;
     else activeDeck.cards.push(...newCards);
     markCardsUpdated();
     renderApplication();
-    showToast("Добавлено: " + newCards.length + ". Дубликатов: " + duplicateCount + ". Пропущено строк: " + ignoredLineCount + ".");
+    showToast("Добавлено: " + newCards.length + ". Заполнено полей: " + verificationResults.updated + ". Не найдено в словаре: " + verificationResults.missing + ". Нужна проверка: " + (verificationResults.ambiguous + verificationResults.mismatches.length) + ". Дубликатов: " + duplicateCount + ".");
   }
   addRowsButton.addEventListener("click", () => importRows(false));
   replaceRowsButton.addEventListener("click", () => importRows(true));
@@ -1066,7 +1410,44 @@ function renderEditor() {
     if (lastRowInput) lastRowInput.focus();
   });
   editorTopline.append(newCardButton);
+  const verifyDeckButton = createElement("button", "button secondary small", "Сверить со словарём");
+  verifyDeckButton.addEventListener("click", () => {
+    const verificationResults = verifyCardsAgainstDictionary(activeDeck.cards);
+    editorReviewSuggestions = verificationResults.mismatches;
+    markCardsUpdated();
+    renderApplication();
+    showToast("Найдено: " + verificationResults.matched + "; заполнено полей: " + verificationResults.updated + "; расхождений: " + verificationResults.mismatches.length + "; нет в словаре: " + verificationResults.missing + "; неоднозначных: " + verificationResults.ambiguous + ".");
+  });
+  editorTopline.append(verifyDeckButton);
   editorPanel.append(editorTopline);
+  const verificationNotice = createElement("div", "editor-verify-note" + (!dictionaryFullLoaded ? " warning" : ""), dictionaryFullLoaded
+    ? "Словарь HSK сохранён на устройстве. Заполняем только пустые поля. Расхождения с ручным переводом и пиньинем показываем для проверки."
+    : "Пока доступен только начальный словарь. Откройте «Словарь HSK 1–2» с интернетом, чтобы загрузить полный список для сверки.");
+  editorPanel.append(verificationNotice);
+  if (editorReviewSuggestions.length > 0) {
+    const suggestionsPanel = createElement("div", "editor-suggestions");
+    suggestionsPanel.append(createElement("strong", "", "Проверьте расхождения со словарём (" + editorReviewSuggestions.length + ")"));
+    for (const suggestedChange of editorReviewSuggestions) {
+      const correspondingCard = activeDeck.cards.find(card => card.identifier === suggestedChange.cardIdentifier);
+      if (!correspondingCard) continue;
+      const suggestionRow = createElement("div", "editor-suggestion");
+      const suggestionDescription = createElement("div", "");
+      suggestionDescription.append(createElement("strong", "", suggestedChange.hanzi));
+      suggestionDescription.append(createElement("div", "", (suggestedChange.fieldName === "pinyin" ? "Пиньинь" : "Перевод") + ": сейчас «" + suggestedChange.currentValue + "», в словаре «" + suggestedChange.suggestedValue + "»."));
+      const applySuggestionButton = createElement("button", "button secondary small", "Взять из словаря");
+      applySuggestionButton.type = "button";
+      applySuggestionButton.addEventListener("click", () => {
+        correspondingCard[suggestedChange.fieldName] = suggestedChange.suggestedValue;
+        if (suggestedChange.fieldName === "translation") correspondingCard.spacedRepetition = createEmptySpacedRepetition();
+        editorReviewSuggestions = editorReviewSuggestions.filter(remainingChange => remainingChange !== suggestedChange);
+        markCardsUpdated();
+        renderApplication();
+      });
+      suggestionRow.append(suggestionDescription, applySuggestionButton);
+      suggestionsPanel.append(suggestionRow);
+    }
+    editorPanel.append(suggestionsPanel);
+  }
 
   const headerRow = createElement("div", "edit-row header");
   for (const headerText of ["Иероглифы", "Пиньинь", "Перевод", ""]) headerRow.append(createElement("span", "", headerText));
@@ -1091,11 +1472,16 @@ function renderEditor() {
       if (fieldName === "hanzi") {
         textInput.addEventListener("blur", () => {
           const simplifiedText = convertToSimplified(textInput.value);
-          if (textInput.value !== simplifiedText) {
-            textInput.value = simplifiedText;
-            card.hanzi = simplifiedText;
-            markCardsUpdated();
-          }
+          if (card.hanzi !== simplifiedText) card.hanzi = simplifiedText;
+          const verificationResults = verifyCardsAgainstDictionary([card]);
+          editorReviewSuggestions = verificationResults.mismatches;
+          textInput.value = card.hanzi;
+          const editorInputs = cardRow.querySelectorAll("input");
+          if (editorInputs[1]) editorInputs[1].value = card.pinyin || "";
+          if (editorInputs[2]) editorInputs[2].value = card.translation || "";
+          markCardsUpdated();
+          if (verificationResults.updated > 0) showToast("Добавлены данные из словаря. Заполнено полей: " + verificationResults.updated + ".");
+          if (verificationResults.mismatches.length > 0) showToast("Есть расхождения со словарём. Нажмите «Сверить со словарём» для просмотра.");
         });
       }
       cardRow.append(textInput);
@@ -1462,6 +1848,7 @@ function renderDictionary() {
       const wordElement = createElement("div", "");
       wordElement.append(createElement("div", "dictionary-hanzi", entry.hanzi));
       wordElement.append(createElement("div", "dictionary-level", "HSK " + (dictionaryVersion === "2025" ? entry.newLevel : entry.oldLevel)));
+      wordElement.append(createCharacterAnalysisButton(entry.hanzi, "character-analysis-button dictionary-character-analysis"));
       const pinyinElement = createElement("div", "dictionary-pinyin", applicationState.showPinyin ? entry.pinyin : "Пиньинь скрыт");
       const translationElement = createElement("div", "dictionary-translation", entry.translation);
       const soundButton = createSoundButton(entry.hanzi);
